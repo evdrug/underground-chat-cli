@@ -10,22 +10,23 @@ import logging
 logger = logging.getLogger('send_message')
 
 
-async def register(send_data: coroutine, nickname: str) -> dict:
+async def registration(send_data: coroutine, nickname: str) -> dict:
     await send_data('')
     result = await send_data(nickname)
     await send_data('')
     return json.loads(result)
 
 
-async def autorization(send_data: coroutine, token: str) -> None:
+async def autorization(send_data: coroutine, token: str) -> bool:
     result = await send_data(token)
     if result == 'null':
         print('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
         return False
     return True
 
-def sender(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> str:
-    async def message(write_data: str):
+
+def sender(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def message(write_data: str) -> str:
         logger.debug(f'writer:  {write_data}')
         writer.write(f'{write_data}\n'.encode())
         fetch_message_raw = await reader.readline()
@@ -36,36 +37,34 @@ def sender(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> str:
 
 
 def create_message(writer: asyncio.StreamWriter) -> None:
-    def message(message: str = '\n\n'):
+    def message(message: str = '\n\n') -> None:
         writer.write(f'{message}\n\n'.encode())
         logger.debug(f'send_message:  {message}')
     return message
 
 
-async def tcp_echo_client(host: str, port: int, token: str = None, message: str = '') -> None:
+async def main(host: str = '', port: int = None, token: str = None, message: str = '', username: str = None) -> None:
     try:
         reader, writer = await asyncio.open_connection(host, port)
     except ConnectionRefusedError as e:
         print(f'Error connection host {host}:{port}')
-        return
-
-    message_connect_raw = await reader.readline()
-    message_connect = message_connect_raw.decode().strip()
-    logger.debug(message_connect)
+        return None
     send_data = sender(reader, writer)
+    await reader.readline()
 
-    auth_result = False
-    if not token:
-        result = await register(send_data, 'Tolik')
-        auth_result = True if result.get('account_hash') else False
-    else:
-        auth_result = await autorization(send_data, token)
+    if username:
+        result_registration_user = await registration(send_data, username)
+        print('Registration new user -', result_registration_user)
+        return None
+
+    auth_result = await autorization(send_data, token)
 
     if not auth_result:
         return None
-
+    
     push_message = create_message(writer=writer)
     push_message(message)
+
 
 
 if __name__ == "__main__":
@@ -79,11 +78,15 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Send message chat.')
 
-    parser.add_argument('message', type=str, nargs='+', help='send message')
+    parser.add_argument('message', type=str, nargs='*', help='send message')
     parser.add_argument('-d', '--debug', dest='loglevel', action='store_const', default=logging.INFO,
                         const=logging.DEBUG, help='Enable debug')
+    parser.add_argument('-r', '--registration',
+                        dest='registration', help='Username for rigistration')
 
     args = parser.parse_args()
     logger.setLevel(args.loglevel)
-
-    asyncio.run(tcp_echo_client(host, port, token, ' '.join(args.message)))
+    if not args.message and not args.registration:
+        parser.error('the following arguments are required: message or optional arguments -r(--registration)')
+    message = ' '.join(args.message)
+    asyncio.run(main(host=host, port=port, token=token, message=message, username=args.registration))
