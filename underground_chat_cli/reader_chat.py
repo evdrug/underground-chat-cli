@@ -7,7 +7,7 @@ import aiofiles
 from dotenv import load_dotenv
 
 
-async def tcp_echo_client(host: str, port: int, file_history: str) -> None:
+async def main(host: str, port: int, file_history: str) -> None:
     try:
         reader, _ = await asyncio.open_connection(host, port)
     except ConnectionRefusedError as e:
@@ -43,4 +43,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    asyncio.run(tcp_echo_client(args.host, args.port, file_history))
+    asyncio.run(main(args.host, args.port, file_history))

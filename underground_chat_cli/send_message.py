@@ -1,11 +1,11 @@
 import argparse
 import asyncio
 import json
+import logging
 import os
 from types import coroutine
 
 from dotenv import load_dotenv
-import logging
 
 logger = logging.getLogger('send_message')
 
@@ -36,7 +36,7 @@ def sender(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     return message
 
 
-def create_message(writer: asyncio.StreamWriter) -> None:
+def submit_message(writer: asyncio.StreamWriter) -> None:
     def message(message: str = '\n\n') -> None:
         writer.write(f'{message}\n\n'.encode())
         logger.debug(f'send_message:  {message}')
@@ -61,10 +61,9 @@ async def main(host: str = '', port: int = None, token: str = None, message: str
 
     if not auth_result:
         return None
-    
-    push_message = create_message(writer=writer)
-    push_message(message)
 
+    push_message = submit_message(writer=writer)
+    push_message(message)
 
 
 if __name__ == "__main__":
@@ -79,14 +78,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Send message chat.')
 
     parser.add_argument('message', type=str, nargs='*', help='send message')
+    parser.add_argument('--host', dest='host', type=str, default=host,
+                        help='connection server host')
+
+    parser.add_argument('--port', dest='port', type=int, default=port,
+                        help='connection server port')
+    parser.add_argument('-t', '--token', dest='token', type=str, default=token,
+                        help='connection server port')
     parser.add_argument('-d', '--debug', dest='loglevel', action='store_const', default=logging.INFO,
                         const=logging.DEBUG, help='Enable debug')
     parser.add_argument('-r', '--registration',
-                        dest='registration', help='Username for rigistration')
+                        dest='username', help='Username for rigistration')
 
     args = parser.parse_args()
     logger.setLevel(args.loglevel)
-    if not args.message and not args.registration:
-        parser.error('the following arguments are required: message or optional arguments -r(--registration)')
+    if not args.message and not args.username:
+        parser.error(
+            'the following arguments are required: message or optional arguments -r(--registration)')
+    print(args)
+
     message = ' '.join(args.message)
-    asyncio.run(main(host=host, port=port, token=token, message=message, username=args.registration))
+    asyncio.run(main(host=args.host, port=args.port,
+                token=args.token, message=message, username=args.username))
