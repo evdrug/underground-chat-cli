@@ -20,8 +20,9 @@ async def register(send_data: coroutine, nickname: str) -> dict:
 async def autorization(send_data: coroutine, token: str) -> None:
     result = await send_data(token)
     if result == 'null':
-        print('не удалось авторизоваться!!!!')
-
+        print('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
+        return False
+    return True
 
 def sender(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> str:
     async def message(write_data: str):
@@ -52,11 +53,17 @@ async def tcp_echo_client(host: str, port: int, token: str = None, message: str 
     message_connect = message_connect_raw.decode().strip()
     logger.debug(message_connect)
     send_data = sender(reader, writer)
-    if 'Enter your personal hash or leave it empty to create new account' in message_connect:
-        if not token:
-            result = await register(send_data, 'Tolik')
-        else:
-            await autorization(send_data, token)
+
+    auth_result = False
+    if not token:
+        result = await register(send_data, 'Tolik')
+        auth_result = True if result.get('account_hash') else False
+    else:
+        auth_result = await autorization(send_data, token)
+
+    if not auth_result:
+        return None
+
     push_message = create_message(writer=writer)
     push_message(message)
 
