@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import os
 import socket
+from contextlib import suppress
 
 import aiofiles
 from dotenv import load_dotenv
@@ -47,7 +48,6 @@ if __name__ == "__main__":
                         help='save history chat to file')
 
     args = parser.parse_args()
-    try:
+
+    with suppress(KeyboardInterrupt):
         asyncio.run(main(args.host, args.port, args.history))
-    except KeyboardInterrupt:
-        pass

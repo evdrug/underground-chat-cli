@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import socket
+from contextlib import suppress
 from typing import Optional, Callable
 
 from dotenv import load_dotenv
@@ -104,8 +105,7 @@ if __name__ == "__main__":
             'the following arguments are required: message or optional arguments -r(--registration)')
 
     message = ' '.join(args.message)
-    try:
+
+    with suppress(KeyboardInterrupt):
         asyncio.run(main(host=args.host, port=args.port,
-                     token=args.token, message=message, username=args.username))
-    except KeyboardInterrupt:
-        pass
+                         token=args.token, message=message, username=args.username))

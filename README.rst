@@ -26,7 +26,7 @@
 
     pip install -r requirements.txt
 
-далее переименовываем файл ``.env.example`` в ``.env`` заполняем соответсвущие переменные
+далее копируем файл ``.env.example`` и переименовываем в ``.env`` заполняем соответсвущие переменные
 
 * ``CHAT_HOST`` - адрес сервера
 * ``CHAT_PORT_READ`` - порт для чтения из чата
@@ -56,9 +56,11 @@
     python underground_chat_cli/send_message.py -r Tolik
     Registration new user - {'nickname': 'Distracted Tolik', 'account_hash': '9a08f44c-c541-11eb-8c47-0242ac110002'}
 
-'account_hash': '9a08f44c-c541-11eb-8c47-0242ac110002' - это ``CHAT_TOKEN``,  запоминаем или копируем в файл с настройками окружения ``.env``
+``9a08f44c-c541-11eb-8c47-0242ac110002`` - это ``CHAT_TOKEN``,  запоминаем или копируем в файл с настройками окружения ``.env``
 
 
 Цели проекта
 ------------
-Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org).
+Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте `Devman <https://dvmn.org>`_ .
+
+
