@@ -16,7 +16,12 @@ async def connection_chat(host: str = None, port: int = None, ) -> (StreamReader
     while True:
         await asyncio.sleep(count_refuse_connect)
         try:
-            reader, writer = await asyncio.open_connection(host, port)
+            sock = socket.create_connection((host, port))
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 5)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+            reader, writer = await asyncio.open_connection(sock=sock)
         except (ConnectionRefusedError, ConnectionError, socket.gaierror) as e:
             print(f'Error connection host {host}:{port}')
         except TimeoutError as e:
@@ -42,9 +47,11 @@ async def write_history_to_file_and_stdout(file_history: str = None, reader: Str
 
 
 async def run_reading_chat(host: str = None, port: int = None, file_history: str = None) -> None:
-    reader, writer = await connection_chat(host, port)
     try:
-        await write_history_to_file_and_stdout(file_history, reader)
+        while True:
+            reader, writer = await connection_chat(host, port)
+            with suppress(TimeoutError):
+                await write_history_to_file_and_stdout(file_history, reader)
     finally:
         writer.close()
         await writer.wait_closed()
