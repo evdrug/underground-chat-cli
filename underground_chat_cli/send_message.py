@@ -5,6 +5,7 @@ import logging
 import os
 import socket
 from contextlib import suppress
+from functools import partial
 from typing import Optional, Callable
 
 from dotenv import load_dotenv
@@ -22,32 +23,28 @@ async def registration(send_data: Callable, nickname: str) -> dict:
 async def authorization(send_data: Callable, token_chat: Optional[str]) -> bool:
     result = await send_data(token_chat)
     if result == 'null':
-        print('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
         return False
     return True
 
 
-def read_write_message(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> Callable:
-    async def wrapper(write_data: str) -> str:
-        logger.debug(f'writer:  {write_data}')
-        writer.write(f'{write_data}\n'.encode())
-        fetch_message_raw = await reader.readline()
-        fetch_message = fetch_message_raw.decode().strip()
-        logger.debug(f"reader: {fetch_message}")
-        return fetch_message
-
-    return wrapper
+async def read_write_message(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, write_data: str) -> str:
+    logger.debug(f'writer:  {write_data}')
+    writer.write(f'{write_data}\n'.encode())
+    await writer.drain()
+    message_raw = await reader.readline()
+    message = message_raw.decode().strip()
+    logger.debug(f"reader: {message}")
+    return message
 
 
-def submit_message(writer: asyncio.StreamWriter) -> Callable:
-    def wrapper(text_message: str = '\n\n') -> None:
-        writer.write(f'{text_message}\n\n'.encode())
-        logger.debug(f'send_message:  {text_message}')
-
-    return wrapper
+async def submit_message(writer: asyncio.StreamWriter, text_message: str = '\n\n') -> None:
+    writer.write(f'{text_message}\n\n'.encode())
+    await writer.drain()
+    logger.debug(f'send_message:  {text_message}')
 
 
-async def main(host: str = '', port: int = None, token: str = None, message: str = '', username: str = None) -> None:
+async def run_sender(host: str = '', port: int = None, token: str = None, message: str = '',
+                     username: str = None) -> None:
     try:
         reader, writer = await asyncio.open_connection(host, port)
     except (ConnectionRefusedError, socket.gaierror) as e:
@@ -57,24 +54,29 @@ async def main(host: str = '', port: int = None, token: str = None, message: str
         print(f'Connection host {host}:{port} timeout')
         return
 
-    send_data = read_write_message(reader, writer)
-    await reader.readline()
+    try:
+        send_data = partial(read_write_message, reader, writer)
+        await reader.readline()
 
-    if username:
-        result_registration_user = await registration(send_data, username)
-        print('Registration new user -', result_registration_user)
-        return None
+        if username:
+            new_registered_user = await registration(send_data, username)
+            print('Registration new user -', new_registered_user)
+            return None
 
-    auth_result = await authorization(send_data, token)
+        is_correct_token = await authorization(send_data, token)
 
-    if not auth_result:
-        return None
+        if not is_correct_token:
+            print('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
+            return None
 
-    push_message = submit_message(writer=writer)
-    push_message(message)
+        push_message = partial(submit_message, writer)
+        await push_message(message)
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
 
-if __name__ == "__main__":
+def main():
     load_dotenv()
     chat_host = os.getenv('CHAT_HOST')
     chat_port = os.getenv('CHAT_PORT_WRITE')
@@ -83,9 +85,9 @@ if __name__ == "__main__":
     log_format = '%(asctime)-15s %(message)s'
     logging.basicConfig(format=log_format)
 
-    parser = argparse.ArgumentParser(description='Send message chat.')
+    parser = argparse.ArgumentParser(description='The sender of the message to the chat')
 
-    parser.add_argument('message', type=str, nargs='*', help='send message')
+    parser.add_argument('message', type=str, nargs='*', help='text message')
     parser.add_argument('--host', dest='host', type=str, default=chat_host,
                         help='connection server host')
 
@@ -105,7 +107,10 @@ if __name__ == "__main__":
             'the following arguments are required: message or optional arguments -r(--registration)')
 
     message = ' '.join(args.message)
-
     with suppress(KeyboardInterrupt):
-        asyncio.run(main(host=args.host, port=args.port,
-                         token=args.token, message=message, username=args.username))
+        asyncio.run(run_sender(host=args.host, port=args.port,
+                               token=args.token, message=message, username=args.username))
+
+
+if __name__ == "__main__":
+    main()
