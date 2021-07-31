@@ -46,11 +46,11 @@ async def submit_message(writer: asyncio.StreamWriter, text_message: str = '\n\n
 async def run_sender(host: str = '', port: int = None, token: str = None, message: str = '',
                      username: str = None) -> None:
     try:
-        reader, writer = await asyncio.open_connection(host, port)
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), 20)
     except (ConnectionRefusedError, socket.gaierror) as e:
         print(f'Error connection host {host}:{port}')
         return
-    except TimeoutError as e:
+    except asyncio.exceptions.TimeoutError as e:
         print(f'Connection host {host}:{port} timeout')
         return
 

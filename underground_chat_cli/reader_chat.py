@@ -15,8 +15,9 @@ async def connection_chat(host: str = None, port: int = None, ) -> (StreamReader
     max_time_reconnect = int(os.getenv('MAX_TIME_RECONNECT', 30))
     while True:
         await asyncio.sleep(count_refuse_connect)
+        print(f'Connection host {host}:{port}')
         try:
-            sock = socket.create_connection((host, port))
+            sock = socket.create_connection((host, port), timeout=10)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 5)
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 1)
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
@@ -24,8 +25,8 @@ async def connection_chat(host: str = None, port: int = None, ) -> (StreamReader
             reader, writer = await asyncio.open_connection(sock=sock)
         except (ConnectionRefusedError, ConnectionError, socket.gaierror) as e:
             print(f'Error connection host {host}:{port}')
-        except TimeoutError as e:
-            print(f'Connection host {host}:{port} timeout')
+        except (socket.timeout, TimeoutError) as e:
+            print(f'Error connection host {host}:{port} - Timeout Error')
         else:
             break
         if count_refuse_connect <= max_time_reconnect:
@@ -47,14 +48,14 @@ async def write_history_to_file_and_stdout(file_history: str = None, reader: Str
 
 
 async def run_reading_chat(host: str = None, port: int = None, file_history: str = None) -> None:
-    try:
-        while True:
-            reader, writer = await connection_chat(host, port)
-            with suppress(TimeoutError):
-                await write_history_to_file_and_stdout(file_history, reader)
-    finally:
-        writer.close()
-        await writer.wait_closed()
+    while True:
+        reader, writer = await connection_chat(host, port)
+        try:
+            await write_history_to_file_and_stdout(file_history, reader)
+        except TimeoutError:
+            print(f'Error connection host {host}:{port} - Timeout Error')
+            writer.close()
+            # await writer.wait_closed()
 
 
 def main():
