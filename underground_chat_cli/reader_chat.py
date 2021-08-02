@@ -10,9 +10,9 @@ import aiofiles
 from dotenv import load_dotenv
 
 
-async def connection_chat(host: str = None, port: int = None, ) -> (StreamReader, StreamWriter):
+async def connect_chat(host: str = None, port: int = None, max_time_reconnect: int = 30) -> (
+StreamReader, StreamWriter):
     count_refuse_connect = 0
-    max_time_reconnect = int(os.getenv('MAX_TIME_RECONNECT', 30))
     while True:
         await asyncio.sleep(count_refuse_connect)
         print(f'Connection host {host}:{port}')
@@ -29,6 +29,7 @@ async def connection_chat(host: str = None, port: int = None, ) -> (StreamReader
             print(f'Error connection host {host}:{port} - Timeout Error')
         else:
             break
+
         if count_refuse_connect <= max_time_reconnect:
             count_refuse_connect += 1
         print(f'Connection attempt again after {count_refuse_connect} s')
@@ -47,9 +48,10 @@ async def write_history_to_file_and_stdout(file_history: str = None, reader: Str
             await f.flush()
 
 
-async def run_reading_chat(host: str = None, port: int = None, file_history: str = None) -> None:
+async def run_reading_chat(host: str = None, port: int = None, file_history: str = None,
+                           max_time_reconnect: int = None) -> None:
     while True:
-        reader, writer = await connection_chat(host, port)
+        reader, writer = await connect_chat(host, port, max_time_reconnect)
         try:
             await write_history_to_file_and_stdout(file_history, reader)
         except TimeoutError:
@@ -64,6 +66,7 @@ def main():
     chat_host = os.getenv('CHAT_HOST')
     chat_port = os.getenv('CHAT_PORT_READ')
     chat_file_history = os.getenv('FILE_HISTORY')
+    max_time_reconnect = int(os.getenv('MAX_TIME_RECONNECT', 30))
 
     parser = argparse.ArgumentParser(description='Process some integers.')
 
@@ -79,7 +82,7 @@ def main():
     args = parser.parse_args()
 
     with suppress(KeyboardInterrupt):
-        asyncio.run(run_reading_chat(args.host, args.port, args.history))
+        asyncio.run(run_reading_chat(args.host, args.port, args.history, max_time_reconnect))
 
 
 if __name__ == "__main__":
