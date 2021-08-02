@@ -55,7 +55,8 @@ async def run_reading_chat(host: str = None, port: int = None, file_history: str
         except TimeoutError:
             print(f'Error connection host {host}:{port} - Timeout Error')
             writer.close()
-            # await writer.wait_closed()
+            with suppress(TimeoutError):
+                await writer.wait_closed()
 
 
 def main():
